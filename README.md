@@ -1,36 +1,72 @@
-Simple updater for World of Warcraft addons written in Lua.
+﻿
+**Simple personal updater for World of Warcraft addons written in Lua.**
 
-### Usage:
+
+## Usage
 
 `lua updater.lua`
 
-On first run, or when new addons are detected, the script will attempt to match each
-addon to a project on CurseForge or Wowace, and ask you to confirm each match. You can
-also choose to manually specify the project, or ignore the addon.
+On first run, or when new addons are detected, the script will attempt to match
+each addon to a project on CurseForge or Wowace, and ask you to confirm each
+match, manually specify the project, or ignore the addon.
 
-For new addons whose TOC files don't include the version number, a fresh copy of the
-addon will be downloaded and installed. It's the only way to be sure (tm).
+For new addons whose TOC files don't include a version number, or don't match
+any version numbers listed on the project page, a fresh copy of the addon will
+be downloaded and installed. It's the only way to be sure (tm).
 
-To manually edit matches later, or ignore / un-ignore addons, edit the `db.lua` file
-created in the script directory.
+To manually edit matches later, or ignore / un-ignore addons, edit the `db.lua`
+file created in the script directory.
 
-### Installation:
+Local Git repositories and SVN working copies are ignored automatically.
 
-1. `cd` into your AddOns folder.
-2. `git clone <url here> zz-updater`
-3. `cd zz-updater`
 
-### Requirements:
+## Future
 
-- Linux (or maybe macOS or Cygwin, but not tested)
-- Lua
-- luafilesystem
-- luasec
-- luasocket
+- WoWInterface support
+- New addon installation
+- Interactive update mode
+- Interactive management features
+
+
+## Installation
+
+1. `cd` into your AddOns folder
+2. `git clone <url> <folder>`
+3. `cd <folder>`
+4. See "Usage" above
+
+If you install anywhere other than `AddOns\<something>` you'll need to edit
+the `BASEDIR` value in `common.lua` accordingly.
+
+
+## Requirements
+
+- Linux
+- gvfs-utils
 - wget
 - unzip
+- Lua
+- luafilesystem
 
-### License
+
+## History
+
+*TLDR version:* I should not need a virtual machine and a magnifying glass to
+update my World of Warcraft addons.
+
+*Long version:* The official Curse updater (a) doesn't run on Linux, including
+under Wine, and (b) is an ever-increasingly bloated pile of social garbage that
+(c) takes forever to launch and do anything in VirtualBox, and (d) is even worse
+at detecting addons than the previous Curse Client was. 💩 🤢 😠
+
+WoWInterface support will be coming soon, because while their official updater,
+while it does run okay under Wine, has way too many bugs with addon and version
+detection to be usable with 100+ addons. Also, no working copy detection. 😞
+
+Also, both totally fail at usability for even the mildly visually impaired.
+
+
+## License
 
 This work is free. You can redistribute it and/or modify it under the
 terms of the Do What The Fuck You Want To Public License, Version 2,
