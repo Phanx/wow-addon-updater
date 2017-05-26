@@ -4,7 +4,7 @@
 
 ## Usage
 
-`lua updater.lua`
+`lua updater.lua` updates all addons.
 
 On first run, or when new addons are detected, the script will attempt to match
 each addon to a project on CurseForge or Wowace, and ask you to confirm each
@@ -19,11 +19,15 @@ file created in the script directory.
 
 Local Git repositories and SVN working copies are ignored automatically.
 
+`lua install.lua <url>` or `lua install.lua <site> <id>` installs the specified
+addon, and saves the source info for frictionless future updates. Supports
+CurseForge, Wowace, and WoWInterface URLs. `<id>` should be the URL slug for
+Curse, and a numeric ID for WoWI.
+
 
 ## Future
 
 - WoWInterface support
-- New addon installation
 - Interactive update mode
 - Interactive management features
 
