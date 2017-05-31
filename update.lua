@@ -6,7 +6,8 @@
 
 require("lfs") -- luafilesystem
 
-local core = loadfile("common.lua")()
+local core = dofile("common.lua")
+local printf = core.printf
 local db = core.getDB()
 
 --
@@ -26,6 +27,7 @@ local function addSearchResults(site, body, t)
 			local date = tr:match(' data%-epoch="(%d+)"')
 
 			if id and name and author then
+				printf("Got search result on %s: %s (%s)", site, name, author)
 				table.insert(t, {
 					site = site,
 					id = id,
@@ -58,25 +60,26 @@ local function ignoreAddon(addon)
 end
 
 local function saveAddonMatch(addon, site, id)
-	print("Saving match: " .. addon.title .. "(" .. id .. "@" .. site .. ")")
+	printf("Saving match: %s (%s @ %s)", addon.title, id, site)
 	addon.site = site
 	addon.id = id
 end
 
 local function matchAddon(addon)
 	local results = getSearchResults(addon.title)
-	print("Found " .. #results .. " for '" .. addon.title .. "' by " .. (addon.author or "<unknown>"))
+	printf("Found %d matches for %s (%s)", #results, addon.title, addon.author or "unknown")
 
 	if #results > 0 then
 		for i = 1, #results do
 			local result = results[i]
 			local lastUpdated = result.date and os.date("%x", result.date) or "<unknown>"
-			print(string.format("%d. %s, by %s, last updated %s", i, result.name, result.author, lastUpdated))
+			printf("%d. %s (%s) %s", i, result.name, result.author, lastUpdated)
 		end
 
 		io.write("Pick a match (1-" .. #results .. ") or enter 0 if none are right:")
 		local pick = io.read()
-		if results[tonumber(pick)] then
+		pick = pick and results[tonumber(pick)]
+		if pick then
 			return saveAddonMatch(addon, pick.site, pick.id)
 		end
 	end
@@ -139,9 +142,13 @@ local function scanAddons()
 
 	-- Scan for removed addons and flag them in the DB
 	for dir, meta in pairs(db) do
-		local attr = lfs.attributes(core.BASEDIR .. "/" .. dir)
-		if not attr or attr.mode ~= "directory" then
-			meta.deleted = true
+		if not meta.deleted then
+			local attr = lfs.attributes(core.BASEDIR .. "/" .. dir)
+			if not attr or attr.mode ~= "directory" then
+				meta.deleted = true
+			elseif not meta.site and not (meta.ignored or meta.dev) then
+				print("New addon: " .. dir)
+			end
 		end
 	end
 
@@ -156,13 +163,13 @@ end
 local function updateAllAddons()
 	for dir, meta in pairs(db) do
 		if meta.site and meta.id and not meta.dev and not meta.ignore and not meta.deleted then
-			core.updateAddon(meta)
+			core.updateAddon(meta) --[[
 		else
 			local reason = meta.dev and "Working Copy"
 				or meta.ignore and "Ignored"
 				or meta.deleted and "Deleted"
 				or "Unidentified"
-			print("Skipping " .. dir .. ": " .. reason)
+			print("Skipping " .. dir .. ": " .. reason) ]]
 		end
 	end
 

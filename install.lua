@@ -5,7 +5,7 @@
 --
 
 local args = { ... }
-local core = loadfile("common.lua")()
+local core = dofile("common.lua")
 local db = core.getDB()
 
 local function installAddon(site, id)

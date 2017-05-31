@@ -5,7 +5,7 @@
 --
 
 require("lfs") -- luafilesystem
-local persistence = loadfile("persistence.lua")()
+local persistence = dofile("persistence.lua")
 
 local export = {}
 
@@ -45,6 +45,16 @@ end
 
 export.getDB = function() return db end
 export.saveDB = saveDB
+
+--
+-- Print a formatted string
+--
+
+local function printf(str, ...)
+	print(string.format(str, ...))
+end
+
+export.printf = printf
 
 --
 -- Do something with each folder in the given directory
@@ -197,6 +207,29 @@ end
 export.cleanup = cleanup
 
 --
+-- Clean up a version string
+--
+
+local function fixVersionString(str, meta)
+	if str then
+		if meta and meta.dir then
+			str = str:gsub(meta.dir, "")
+		end
+		if meta and meta.title then
+			str = str:gsub(meta.title, "")
+		end
+		str = str:gsub("^%s*", "")
+		str = str:gsub("%s*$", "")
+		str = str:gsub("Version ", "")
+		str = str:gsub("[rv] ?(%d+)", "%1")
+		str = str:gsub("%-release", "")
+	end
+	return str
+end
+
+export.fixVersionString = fixVersionString
+
+--
 -- Scan a TOC file for information about an addon
 --
 
@@ -232,7 +265,7 @@ local function getAddonMetadata(dir)
 		local k, v = line:match("^##%s+(.+)%s*:%s+(.+%S)%s*$")
 		local f = tocfields[k]
 		if f then
-			meta[f] = v:gsub("\\r$", "")
+			meta[f] = v
 		end
 	end
 	toc:close()
@@ -267,7 +300,7 @@ local function getProjectFiles(site, id)
 	if not site or not id or not FILES_URL[site] then return end
 
 	local url = FILES_URL[site]:format(id)
-	print("Getting files from " .. url)
+	-- print("Getting files from " .. url)
 
 	local ok, size, data = request(url)
 	if data then
@@ -310,7 +343,7 @@ local function installAddonFile(addon, file)
 	assert(ok, "Error downloading file")
 
 	-- Make sure temp dir is empty
-	withEachFolder(TEMPDIR, function(path, dir) {
+	withEachFolder(TEMPDIR, function(path, dir)
 		print("Deleting temp subdir " .. dir)
 		os.execute(string.format("rm -rf '%s'", path))
 	end)
@@ -318,9 +351,24 @@ local function installAddonFile(addon, file)
 	-- Unzip the download
 	os.execute("unzip -qq -o " .. path .. " -d " .. TEMPDIR)
 
+	-- Fix capitalization of folder name for addons with dumb/lazy authors
+	-- eg. spew/Spew.toc
+	withEachFolder(TEMPDIR, function(path, dir)
+		for file in lfs.dir(path) do
+			local toc = file:match("(.+)%.toc$")
+			if toc then
+				if toc ~= dir then
+					print("Renaming bad folder: %s --> %s", dir, toc)
+					os.execute("mv '%s' %s'", path, path:gsub(dir.."$", toc))
+				end
+				break
+			end
+		end
+	end
+
 	-- Copy extracted dirs to real dir
 	local folders = {}
-	withEachFolder(TEMPDIR, function(path, dir) {
+	withEachFolder(TEMPDIR, function(path, dir)
 		print("Installing folder: " .. dir)
 		table.insert(folders, dir)
 		os.execute(string.format("gvfs-trash '%s/%s'", BASEDIR, dir))
@@ -341,7 +389,7 @@ export.installAddon = installAddon
 --
 
 local function updateAddon(addon)
-	print("Checking " .. addon.title)
+	-- print("Checking " .. addon.title)
 
 	local files = getProjectFiles(addon.site, addon.id)
 	if not files or #files == 0 then return end
@@ -353,8 +401,8 @@ local function updateAddon(addon)
 		return -- print("Already up to date")
 	end
 
-	print("Updating " .. (installed or "UNKNOWN") .. " --> " .. newest.name)
-	-- installAddonFile(addon, newest)
+	printf("Updating %s: %s --> %s", addon.title, installed or "UNKNOWN", newest.name)
+	installAddonFile(addon, newest)
 end
 
 export.updateAddon = updateAddon
