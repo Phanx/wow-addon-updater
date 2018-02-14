@@ -6,37 +6,58 @@
 
 require("lfs") -- luafilesystem
 
+local cleanHTML = dofile("utils/cleanHTML.lua")
+local sites = dofile("sites.lua")
+
 local core = dofile("common.lua")
-local printf = core.printf
 local db = core.getDB()
+
+local args = core.parseArguments(...)
+
+--
+-- Logging
+--
+local logLines = {}
+
+local function addToLog(str)
+	table.insert(logLines, str)
+end
+
+local function writeLog()
+	local file = io.open("log.txt", "w")
+	if not file then return end
+	file:write(table.concat(logLines, "\n") .. "\n")
+	file:close()
+end
+
+local _print = print
+
+function print(str, ...)
+	local logstr = tostring(str)
+	if select("#", ...) > 0 then
+		for i = 1, select("#", ...) do
+			logstr = logstr .. " " .. tostring(select(i, ...))
+		end
+	end
+	addToLog(logstr)
+	_print(str, ...)
+end
+
+local function printf(str, ...)
+	print(string.format(str, ...))
+end
 
 --
 -- Try to match an addon to a project on CurseForge or Wowace
 --
 
-local function addSearchResults(site, body, t)
+local function addSearchResults(site, html, t)
 	t = t or {}
 
-	if type(body) == "string" then
-		body = common.cleanHTML(body)
-
-		for tr in body:gmatch('<tr class="results">.-</tr>') do
-			local id, name = tr:match('<div class="results-name">%s*<a href="/projects/([^"%?])[^"]*">(.-)</a>')
-			name = name and name:gsub("<[^>]+>", "") -- remove <span>s used to highlight search terms
-			local author = tr:match('<a href="/members/[^"]+">([^<]+)</a>')
-			local date = tr:match(' data%-epoch="(%d+)"')
-
-			if id and name and author then
-				printf("Got search result on %s: %s (%s)", site, name, author)
-				table.insert(t, {
-					site = site,
-					id = id,
-					name = name,
-					author = author,
-					date = tonumber(date),
-				})
-			end
-		end
+	local parser = sites.parseSearchResults[site]
+	if parser and type(html) == "string" then
+		html = cleanHTML(html)
+		parser(html, t)
 	end
 
 	return t
@@ -45,11 +66,10 @@ end
 local function getSearchResults(term)
 	local results = {}
 
-	local _, _, curseResults = core.request("https://wow.curseforge.com/search?search=" .. common.urlencode(term))
-	addSearchResults("curseforge", curseResults, results)
-
-	local _, _, wowaceResults = core.request("https://www.wowace.com/search?search=" .. common.urlencode(term))
-	addSearchResults("wowace", wowaceResults, results)
+	for site, getSearchURL in pairs(sites.getSearchURL) do
+		local _, _, html = core.request(getSearchURL(term))
+		addSearchResults(site, html, results)
+	end
 
 	return results
 end
@@ -67,7 +87,7 @@ end
 
 local function matchAddon(addon)
 	local results = getSearchResults(addon.title)
-	printf("Found %d matches for %s (%s)", #results, addon.title, addon.author or "unknown")
+	printf("Found %d matches for %s by %s", #results, addon.title, addon.author or "<unknown>")
 
 	if #results > 0 then
 		for i = 1, #results do
@@ -76,38 +96,43 @@ local function matchAddon(addon)
 			printf("%d. %s (%s) %s", i, result.name, result.author, lastUpdated)
 		end
 
-		io.write("Pick a match (1-" .. #results .. ") or enter 0 if none are right:")
-		local pick = io.read()
-		pick = pick and results[tonumber(pick)]
-		if pick then
-			return saveAddonMatch(addon, pick.site, pick.id)
+		local pick = tonumber(core.prompt("Pick a match (1" .. (#results > 1 and ("-" .. #results) or "") .. ") or enter 0 if none are right:")) or 0
+		local result = results[pick]
+		if result then
+			return saveAddonMatch(addon, result.site, result.id)
 		end
 	end
 
-	io.write("Specify a manual match now? (y/n):")
-	local reply = io.read():lower()
+	local reply = string.lower(core.prompt("Specify a manual match now? (y/n):"))
 	if reply == "y" then
-		io.write("Addon site ([c]urseforge, wow[a]ce, or wow[i]nterface) or URL:")
-		reply = io.read()
+		local options = ""
+		for i = 1, #sites.info do
+			if i > 1 then
+				options = options .. ", "
+			elseif i == #sites.info then
+				options = options .. ", or "
+			end
+			options = options .. sites.info[i].id:gsub(sites.info[i].key, "[" .. sites.info[i].key .. "]", 1)
+		end
+		reply = core.prompt("Addon site (" .. options ..") or URL:")
 
 		if reply:match("^https?://") then
 			local site, id = core.parseProjectURL(reply)
 			if site and id then
 				return saveAddonMatch(addon, site, id)
 			end
-			print("Unrecognized URL")
+			print("Could not parse URL")
 			return ignoreAddon(addon)
 		end
 
 		reply = reply:lower()
-		local site = reply == "c" and "curseforge" or reply == "a" and "wowace" or reply == "i" and "wowinterface"
+		local site = sites.info[reply]
 		if not site then
 			print("Invalid site")
 			return ignoreAddon(addon)
 		end
 
-		io.write("Addon identifier:")
-		local id = io.read()
+		local id = core.prompt("Addon slug or ID:")
 		if id:len() == 0 then
 			print("Missing ID")
 			return ignoreAddon(addon)
@@ -127,10 +152,10 @@ end
 local function scanAddons()
 	-- Scan for added or changed addons and add them to the DB
 	for dir in lfs.dir(core.BASEDIR) do
-		-- print("Scanning object " .. dir)
+		print("Scanning object " .. dir)
 		local meta = core.getAddonMetadata(dir)
 		if meta then
-			-- print("Found addon")
+			print("Found addon")
 			local t = db[dir] or {}
 			for k, v in pairs(meta) do
 				t[k] = v
@@ -145,9 +170,18 @@ local function scanAddons()
 		if not meta.deleted then
 			local attr = lfs.attributes(core.BASEDIR .. "/" .. dir)
 			if not attr or attr.mode ~= "directory" then
+				addToLog("Deleted:", name)
 				meta.deleted = true
 			elseif not meta.site and not (meta.ignored or meta.dev) then
-				print("New addon: " .. dir)
+				addToLog("New:", dir)
+				local action = string.lower(core.prompt("New addon '" .. dir .. "' -- [m]atch, [i]gnore, or [s]kip? "))
+				if action == "m" then
+					matchAddon(meta)
+				elseif action == "i" then
+					ignoreAddon(meta)
+				else
+					print("Skipped")
+				end
 			end
 		end
 	end
@@ -163,13 +197,13 @@ end
 local function updateAllAddons()
 	for dir, meta in pairs(db) do
 		if meta.site and meta.id and not meta.dev and not meta.ignore and not meta.deleted then
-			core.updateAddon(meta) --[[
+			core.updateAddon(meta)
 		else
 			local reason = meta.dev and "Working Copy"
 				or meta.ignore and "Ignored"
 				or meta.deleted and "Deleted"
 				or "Unidentified"
-			print("Skipping " .. dir .. ": " .. reason) ]]
+			print("Skipping " .. dir .. ": " .. reason)
 		end
 	end
 
@@ -188,6 +222,8 @@ local function start()
 	updateAllAddons()
 	-- Clean up any temporary files
 	core.cleanup()
+	-- Write the log file
+	writeLog()
 end
 
 start()

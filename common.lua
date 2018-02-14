@@ -5,9 +5,13 @@
 --
 
 require("lfs") -- luafilesystem
-local persistence = dofile("persistence.lua")
+local persistence = dofile("libs/persistence.lua")
+local cleanHTML = dofile("utils/cleanHTML.lua")
+local sites = dofile("sites.lua")
 
 local export = {}
+
+local UNKNOWN = "<unknown>"
 
 --
 -- Script configuration
@@ -22,16 +26,25 @@ export.BASEDIR = BASEDIR
 export.TEMPDIR = TEMPDIR
 
 --
--- Project fetch configuration
+-- Parse CLI arguments
 --
 
-local FILES_URL = {
-	curseforge = "https://wow.curseforge.com/projects/%s/files",
-	wowace = "https://www.wowace.com/projects/%s/files",
-	wowinterface = "https://www.wowinterface.com/downloads/info%s",
-}
+local function parseArguments(...)
+	local args = {}
+	for i = 1, select("#", ...) do
+		local thisarg = select(i, ...)
+		local nextarg = select(i + 1, ...)
+		if thisarg:match("^%-") then
+			if not nextarg or nextarg:match("^%-") then
+				args[thisarg:gsub("^%-+", "")] = true
+			else
+				args[thisarg:gsub("^%-+", "")] = nextarg
+			end
+		end
+	end
+end
 
-export.FILES_URL = FILES_URL
+export.parseArguments = parseArguments
 
 --
 -- Read and write the database to a file
@@ -83,18 +96,14 @@ local function prompt(text, options, constrain)
 		options = nil
 	end
 
-	local hint = ""
-	if options then
-		hint = " (" .. table.concat(options, "/") .. ")"
-	end
-	io.write(text .. hint)
+	io.write(text .. " ")
 
-	local reply = io.read()
+	local reply = io.read()--[[
 	if options and constrain then
 		while not options[reply:lower()] do
 			reply = io.read()
 		end
-	end
+	end]]
 	return reply
 end
 
@@ -119,49 +128,6 @@ local function table_merge(...)
 end
 
 export.table_merge = table_merge
-
---
--- URL-encode a string
---
-
-local function urlencode(str)
-	if (str) then
-		str = string.gsub(str, "\n", "\r\n")
-		str = string.gsub(str, "([^%w ])", function (c) return string.format("%%%02X", string.byte(c)) end)
-		str = string.gsub(str, " ", "+")
-	end
-	return str
-end
-
-export.urlencode = urlencode
-
---
--- Get site and id from a URL
---
-
-local function parseProjectURL(url)
-	if type(url) ~= "string" then return end
-
-	local id = url:match("//wow.curseforge.com/projects/([^/]+)")
-	if id then
-		return "curseforge", id
-	end
-
-	id = url:match("//www.wowace.com/projects/([^/]+)")
-	if id then
-		return "wowace", id
-	end
-
-	-- WoWInterface usually has a "www" subdomain, but can also have
-	-- an author name subdomain if coming from an Author Portal page.
-	id = url:match("[/%.]wowinterface.com/downloads/info(%d+)")
-		or url:match("[/%.]wowinterface.com/downloads/download(%d+)")
-	if id then
-		return "wowinterface", id
-	end
-end
-
-export.parseProjectURL = parseProjectURL
 
 --
 -- Retrieve documents and other files using wget
@@ -201,7 +167,12 @@ export.request = request
 --
 
 local function cleanup()
-	lfs.rmdir(TEMPDIR)
+	-- lfs.rmdir(TEMPDIR)
+	if lfs.attributes("C:/Windows") then
+		os.execute("rmdir /q /s " .. TEMPDIR)
+	else
+		os.execute("rm -rf " .. TEMPDIR)
+	end
 end
 
 export.cleanup = cleanup
@@ -274,62 +245,28 @@ end
 
 export.getAddonMetadata = getAddonMetadata
 
---
--- Clean up HTML for easier parsing
---
-
-local function cleanHTML(str)
-	if str then
-		str = str:gsub("\r?\n", " ") -- remove linebreaks
-		str = str:gsub("%s%s+", " ") -- collapse whitespace
-	end
-	return str
-end
-
-export.cleanHTML = cleanHTML
 
 --
 -- Get a list of available files for the addon
 --
 
-local function sortFilesByDate(a, b)
-	return a.date > b.date
-end
-
 local function getProjectFiles(site, id)
-	if not site or not id or not FILES_URL[site] then return end
+	if not site
+	or not id
+	or not sites.getFilesListURL[site]
+	or not sites.parseFilesList[site] then
+		return
+	end
 
-	local url = FILES_URL[site]:format(id)
+	local url = sites.getFilesListURL[site](id)
 	-- print("Getting files from " .. url)
 
 	local ok, size, data = request(url)
 	if data then
-		data = cleanHTML(data)
 		-- print("Parsing files list")
-
-		local files = {}
-		local host = url:match("https://[^/]+")
-
-		for tr in data:gmatch('<tr class="project%-file%-list%-item">(.-)</tr>') do
-			local name = tr:match('data%-action="file%-link" data%-id="[^"]+" data%-name="([^"]+)"')
-			local link = tr:match('<a class="button tip fa%-icon%-download icon%-only" href="([^"]+)"')
-			local date = tr:match('data%-epoch="(%d+)"')
-
-			if name and link and date then
-				table.insert(files, {
-					name = name,
-					link = host .. link,
-					date = tonumber(date),
-				})
-			end
-		end
-
-		if #files > 0 then
-			table.sort(files, sortFilesByDate)
-			return files
-		end
+		return sites.parseFilesList[site](url, data)
 	end
-	print("No data received")
+	--print("No data received")
 end
 
 export.getProjectFiles = getProjectFiles
@@ -359,19 +296,21 @@ local function installAddonFile(addon, file)
 			if toc then
 				if toc ~= dir then
 					print("Renaming bad folder: %s --> %s", dir, toc)
-					os.execute("mv '%s' %s'", path, path:gsub(dir.."$", toc))
+					os.execute("mv '%s' '%s'", path, path:gsub(dir.."$", toc, 1))
 				end
 				break
 			end
 		end
-	end
+	end)
 
 	-- Copy extracted dirs to real dir
 	local folders = {}
 	withEachFolder(TEMPDIR, function(path, dir)
 		print("Installing folder: " .. dir)
 		table.insert(folders, dir)
-		os.execute(string.format("gvfs-trash '%s/%s'", BASEDIR, dir))
+		if lfs.attributes(string.format("%s/%s", BASEDIR, dir)) then
+			os.execute(string.format("gvfs-trash '%s/%s'", BASEDIR, dir))
+		end
 		os.execute(string.format("mv '%s' '%s'", path, BASEDIR))
 		os.execute(string.format("chmod -R 777 '%s/%s'", BASEDIR, dir))
 	end)
@@ -382,26 +321,26 @@ local function installAddonFile(addon, file)
 	return folders
 end
 
-export.installAddon = installAddon
+export.installAddonFile = installAddonFile
 
 --
 -- Update a single addon
 --
 
 local function updateAddon(addon)
-	-- print("Checking " .. addon.title)
-
 	local files = getProjectFiles(addon.site, addon.id)
-	if not files or #files == 0 then return end
+	if not files or #files == 0 then
+		return printf("No files found for %s", addon.title)
+	end
 
 	local installed = addon.installed or addon.version
 
 	local newest = files[1]
 	if installed == newest.name then
-		return -- print("Already up to date")
+		return printf("%s is already up to date (%s)", addon.title, installed)
 	end
 
-	printf("Updating %s: %s --> %s", addon.title, installed or "UNKNOWN", newest.name)
+	printf("%s will be updated from %s to %s", addon.title, installed or UNKNOWN, newest.name)
 	installAddonFile(addon, newest)
 end
 

@@ -1,4 +1,4 @@
-﻿--
+--
 -- Updates WoW addons from CurseForge and Wowace on Linux systems.
 -- Written by Phanx <phanx@phanx.net>
 -- Released under the WTFPL - You just DO WHAT THE FUCK YOU WANT TO.
@@ -6,12 +6,13 @@
 
 local args = { ... }
 local core = dofile("common.lua")
+local sites = dofile("sites.lua")
 local db = core.getDB()
 
 local function installAddon(site, id)
 	print("Installing new addon " .. id .. "@" .. site)
 
-	local files = getProjectFiles(site, id)
+	local files = core.getProjectFiles(site, id)
 	if not files or #files == 0 then
 		return print("No files found")
 	end
@@ -24,7 +25,7 @@ local function installAddon(site, id)
 
 	-- Identify main directory
 	local main = 1
-	local folders = common.installAddonFile(addon, file)
+	local folders = core.installAddonFile(addon, file)
 	if #folders > 1 then
 		print("Installed " .. #folders .. " folders:")
 
@@ -40,7 +41,7 @@ local function installAddon(site, id)
 	local dir = folders[main]
 
 	-- Fetch base metadata from TOC file
-	local meta = common.getAddonMetadata(dir)
+	local meta = core.getAddonMetadata(dir)
 	for k, v in pairs(meta) do
 		addon[k] = v
 	end
@@ -55,6 +56,7 @@ local function installAddon(site, id)
 			local other = folders[i]
 			db[other] = {
 				dir = other,
+				parent = dir,
 				ignore = true
 			}
 		end
@@ -62,11 +64,13 @@ local function installAddon(site, id)
 
 	-- Write to disk
 	core.saveDB()
+
+	core.printf("Successfully installed %s!", addon.title or dir)
 end
 
 local site, id
 if args[1] and args[1]:match("^http") then
-	site, id = core.parseProjectURL(args[1])
+	site, id = sites.parseProjectURL(args[1])
 elseif #args == 2 then
 	site, id = args[1]:lower(), args[2]:lower()
 end
