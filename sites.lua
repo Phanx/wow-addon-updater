@@ -179,7 +179,7 @@ local function parseProjectURL(url)
 	-- WoWInterface usually has a "www" subdomain, but can also have
 	-- an author name subdomain if coming from an Author Portal page.
 	id = url:match("[/%.]wowinterface.com/downloads/info(%d+)")
-		or url:match("[/%.]wowinterface.com/downloads/fileinfo\.php\?id=(%d+)")
+		or url:match("[/%.]wowinterface.com/downloads/fileinfo%.php%?id=(%d+)")
 		or url:match("[/%.]wowinterface.com/downloads/download(%d+)")
 	if id then
 		return "wowinterface", id
