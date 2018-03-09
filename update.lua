@@ -1,7 +1,8 @@
 --
--- Updates WoW addons from CurseForge and Wowace on Linux systems.
--- Written by Phanx <phanx@phanx.net>
--- Released under the WTFPL - You just DO WHAT THE FUCK YOU WANT TO.
+-- Update and install World of Warcraft addons from the command line.
+-- Author : Phanx <phanx@phanx.net>
+-- Website: https://gitlab.com/phanx/wow-addon-updater
+-- License: Zlib - see LICENSE.txt for full text
 --
 
 require("lfs") -- luafilesystem

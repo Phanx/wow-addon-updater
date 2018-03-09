@@ -1,3 +1,10 @@
+--
+-- Update and install World of Warcraft addons from the command line.
+-- Author : Phanx <phanx@phanx.net>
+-- Website: https://gitlab.com/phanx/wow-addon-updater
+-- License: Zlib - see LICENSE.txt for full text
+--
+
 local cleanHTML = dofile("utils/cleanHTML.lua")
 local decodeEntities = dofile("utils/decodeEntities.lua")
 local encodeURL = dofile("utils/encodeURL.lua")
