@@ -144,7 +144,7 @@ local function request(url, binary)
 	local logfile = TEMPDIR .. "/log"
 	os.remove(outfile)
 	os.remove(logfile)
-	os.execute(string.format("wget -o %s -O %s %s", logfile, outfile, url))
+	os.execute(string.format("wget -o %s -O %s '%s'", logfile, outfile, url))
 
 	local attr = lfs.attributes(outfile)
 	if not attr or attr.mode ~= "file" then
@@ -252,22 +252,29 @@ export.getAddonMetadata = getAddonMetadata
 --
 
 local function getProjectFiles(site, id)
-	if not site
-	or not id
-	or not sites.getFilesListURL[site]
-	or not sites.parseFilesList[site] then
-		return
-	end
+	if not site or not id then return end
 
-	local url = sites.getFilesListURL[site](id)
-	-- print("Getting files from " .. url)
+	local getFilesListURL = sites.getFilesListURL[site]
+	local parseFilesList = sites.parseFilesList[site]
+	if not getFilesListURL or not parseFilesList then return end
+
+	local url = getFilesListURL(id)
+--	print("Getting files from " .. url)
 
 	local ok, size, data = request(url)
 	if data then
-		-- print("Parsing files list")
-		return sites.parseFilesList[site](url, data)
+--		print("Parsing files list")
+		local list = parseFilesList(url, data)
+		if list[1] and list[1].middleman then
+--			print("Getting middleman")
+			ok, size, data = request(list[1].link)
+			if data then
+				list = parseFilesList(list[1].link, data, list)
+			end
+		end
+		return list
 	end
-	--print("No data received")
+--	print("No data received")
 end
 
 export.getProjectFiles = getProjectFiles

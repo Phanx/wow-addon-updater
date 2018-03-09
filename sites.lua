@@ -1,13 +1,14 @@
 local cleanHTML = dofile("utils/cleanHTML.lua")
+local decodeEntities = dofile("utils/decodeEntities.lua")
 local encodeURL = dofile("utils/encodeURL.lua")
 
 local exports = {}
 
 local function getTimestamp(y, m, d, hh, mm)
 	return os.time({
-		year = tonumber(y),
-		month = tonumber(m),
-		day = tonumber(d),
+		year = tonumber(y) or 2099,
+		month = tonumber(m) or 1,
+		day = tonumber(d) or 1,
 		hour = tonumber(hh) or 12,
 		minute = tonumber(mm) or 0,
 	})
@@ -36,7 +37,7 @@ exports.getFilesListURL = getFilesListURL
 
 getFilesListURL["curseforge"] = function(id) return "https://wow.curseforge.com/projects/" .. id .. "/files" end
 getFilesListURL["wowace"] = function(id) return "https://www.wowace.com/projects/" .. id .. "/files" end
-getFilesListURL["wowinterface"] = function(id) return "https://www.wowinterface.com/downloads/info" .. id end
+getFilesListURL["wowinterface"] = function(id) return "https://www.wowinterface.com/downloads/fileinfo.php?id=" .. id end
 
 --[[
 	parseFilesList
@@ -83,18 +84,29 @@ parseFilesList["wowinterface"] = function(url, html, t)
 
 	local host = url:match("https://[^/]+")
 
+	if url:find("/downloads/landing\.php") then
+		local file = t[1]
+		if file then
+			local link = html:match('<div class="manuallink">.- <a href="(.-)">Click here</a>')
+			file.link = decodeEntities(link)
+			file.middleman = false
+		end
+		return t
+	end
+
 	do
-		local name = html:match('')
-		local link = html:match('<a href="(/downloads/[^"]+)">Download</a>')
+		local name = html:match('<div id="version">Version: ([^<]+)</div>')
+		local link = decodeEntities(html:match('<a[^>]* href="(/downloads/[^"]+)">Download</a>'))
 		local d, m, y, hh, mm, am = html:match('<div id="safe">Updated: (%d+)%-(%d+)%-(%d+) (%d+):(%d+) ([AP]M)</div>')
 		if am == "PM" then hh = tonumber(hh) + 12 end
 		local updated = getTimestamp(y, m, d, hh, mm)
 
-		if name and link and date then
+		if name and link and updated then
 			table.insert(t, {
 				name = name,
 				link = host .. link,
 				date = updated,
+				middleman = true,
 			})
 		end
 	end
@@ -160,6 +172,7 @@ local function parseProjectURL(url)
 	-- WoWInterface usually has a "www" subdomain, but can also have
 	-- an author name subdomain if coming from an Author Portal page.
 	id = url:match("[/%.]wowinterface.com/downloads/info(%d+)")
+		or url:match("[/%.]wowinterface.com/downloads/fileinfo\.php\?id=(%d+)")
 		or url:match("[/%.]wowinterface.com/downloads/download(%d+)")
 	if id then
 		return "wowinterface", id
