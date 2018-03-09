@@ -5,6 +5,7 @@
 --
 
 require("lfs") -- luafilesystem
+local colors = dofile("libs/ansicolors.lua")
 local persistence = dofile("libs/persistence.lua")
 local cleanHTML = dofile("utils/cleanHTML.lua")
 local sites = dofile("sites.lua")
@@ -306,13 +307,19 @@ local function installAddonFile(addon, file)
 	-- Copy extracted dirs to real dir
 	local folders = {}
 	withEachFolder(TEMPDIR, function(path, dir)
-		print("Installing folder: " .. dir)
+		print("\tInstalling folder: " .. dir)
 		table.insert(folders, dir)
 		if lfs.attributes(string.format("%s/%s", BASEDIR, dir)) then
 			os.execute(string.format("gvfs-trash '%s/%s'", BASEDIR, dir))
 		end
 		os.execute(string.format("mv '%s' '%s'", path, BASEDIR))
 		os.execute(string.format("chmod -R 777 '%s/%s'", BASEDIR, dir))
+	end)
+
+	-- Make sure temp dir is empty again (maybe fix last addon printing second to last addon's folders)
+	withEachFolder(TEMPDIR, function(path, dir)
+		print("Deleting temp subdir " .. dir)
+		os.execute(string.format("rm -rf '%s'", path))
 	end)
 
 	-- Update the installed version info in the db
@@ -330,17 +337,17 @@ export.installAddonFile = installAddonFile
 local function updateAddon(addon)
 	local files = getProjectFiles(addon.site, addon.id)
 	if not files or #files == 0 then
-		return printf("No files found for %s", addon.title)
+		return printf(colors.red("\tNo files found for %s"), addon.title)
 	end
 
 	local installed = addon.installed or addon.version
 
 	local newest = files[1]
 	if installed == newest.name then
-		return printf("%s is already up to date (%s)", addon.title, installed)
+		return printf(colors.blue("%s is already up to date (%s)"), addon.title, installed)
 	end
 
-	printf("%s will be updated from %s to %s", addon.title, installed or UNKNOWN, newest.name)
+	printf(colors.green("%s will be updated from %s to %s"), addon.title, installed or UNKNOWN, newest.name)
 	installAddonFile(addon, newest)
 end
 

@@ -8,20 +8,28 @@ require("lfs") -- luafilesystem
 
 local cleanHTML = dofile("utils/cleanHTML.lua")
 local sites = dofile("sites.lua")
-
 local core = dofile("common.lua")
 local db = core.getDB()
 
 local args = core.parseArguments(...)
 
 --
--- Logging
+-- Logging and message output
 --
-local logLines = {}
 
-local function addToLog(str)
-	table.insert(logLines, str)
+local function formatMessage(str, ...)
+	str = tostring(str)
+	if str:find("%%[dsf%d%.]") then
+		str = str:format(...)
+	elseif select("#", ...) > 0 then
+		for i = 1, select("#", ...) do
+			str = str .. " " .. tostring(select(i, ...))
+		end
+	end
+	return str
 end
+
+local logLines = {}
 
 local function writeLog()
 	local file = io.open("log.txt", "w")
@@ -30,21 +38,14 @@ local function writeLog()
 	file:close()
 end
 
-local _print = print
-
-function print(str, ...)
-	local logstr = tostring(str)
-	if select("#", ...) > 0 then
-		for i = 1, select("#", ...) do
-			logstr = logstr .. " " .. tostring(select(i, ...))
-		end
-	end
-	addToLog(logstr)
-	_print(str, ...)
+local function log(str, ...)
+	table.insert(logLines, formatMessage(str, ...))
 end
 
-local function printf(str, ...)
-	print(string.format(str, ...))
+local _print = print
+function print(str, ...)
+	log(formatMessage(str, ...))
+	_print(formatMessage(str, ...))
 end
 
 --
@@ -75,25 +76,25 @@ local function getSearchResults(term)
 end
 
 local function ignoreAddon(addon)
-	print("Now ignoring " .. addon.title)
+	print("Now ignoring", addon.title)
 	addon.ignored = true
 end
 
 local function saveAddonMatch(addon, site, id)
-	printf("Saving match: %s (%s @ %s)", addon.title, id, site)
+	print("Saving match: %s (%s @ %s)", addon.title, id, site)
 	addon.site = site
 	addon.id = id
 end
 
 local function matchAddon(addon)
 	local results = getSearchResults(addon.title)
-	printf("Found %d matches for %s by %s", #results, addon.title, addon.author or "<unknown>")
+	print("Found %d matches for %s by %s", #results, addon.title, addon.author or "<unknown>")
 
 	if #results > 0 then
 		for i = 1, #results do
 			local result = results[i]
 			local lastUpdated = result.date and os.date("%x", result.date) or "<unknown>"
-			printf("%d. %s (%s) %s", i, result.name, result.author, lastUpdated)
+			print("%d. %s (%s) %s", i, result.name, result.author, lastUpdated)
 		end
 
 		local pick = tonumber(core.prompt("Pick a match (1" .. (#results > 1 and ("-" .. #results) or "") .. ") or enter 0 if none are right:")) or 0
@@ -152,10 +153,10 @@ end
 local function scanAddons()
 	-- Scan for added or changed addons and add them to the DB
 	for dir in lfs.dir(core.BASEDIR) do
-		print("Scanning object " .. dir)
+		log("Scanning object", dir)
 		local meta = core.getAddonMetadata(dir)
 		if meta then
-			print("Found addon")
+			log("Found addon")
 			local t = db[dir] or {}
 			for k, v in pairs(meta) do
 				t[k] = v
@@ -170,10 +171,10 @@ local function scanAddons()
 		if not meta.deleted then
 			local attr = lfs.attributes(core.BASEDIR .. "/" .. dir)
 			if not attr or attr.mode ~= "directory" then
-				addToLog("Deleted:", name)
+				log("Deleted:", name)
 				meta.deleted = true
 			elseif not meta.site and not (meta.ignored or meta.dev) then
-				addToLog("New:", dir)
+				log("New:", dir)
 				local action = string.lower(core.prompt("New addon '" .. dir .. "' -- [m]atch, [i]gnore, or [s]kip? "))
 				if action == "m" then
 					matchAddon(meta)
@@ -195,15 +196,24 @@ end
 --
 
 local function updateAllAddons()
+	local dirs = {}
 	for dir, meta in pairs(db) do
-		if meta.site and meta.id and not meta.dev and not meta.ignore and not meta.deleted then
+		table.insert(dirs, dir)
+	end
+	table.sort(dirs)
+
+	for i = 1, #dirs do
+		local dir = dirs[i]
+		local meta = db[dir]
+
+		if meta.site and meta.id and not (meta.dev or meta.ignore or meta.deleted) then
 			core.updateAddon(meta)
 		else
 			local reason = meta.dev and "Working Copy"
 				or meta.ignore and "Ignored"
 				or meta.deleted and "Deleted"
 				or "Unidentified"
-			print("Skipping " .. dir .. ": " .. reason)
+			log("%s skipped (%s)", dir, reason)
 		end
 	end
 
