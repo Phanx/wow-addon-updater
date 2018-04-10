@@ -197,12 +197,13 @@ exports.parseProjectURL = parseProjectURL
 
 	parser(html, t)
 	- html: string
+	- site: string
 	- t: optional, table into which to insert results
 --]]
 local parseSearchResults = {}
 exports.parseSearchResults = parseSearchResults
 
-parseSearchResults["curseforge"] = function(html, t)
+parseSearchResults["curseforge"] = function(html, site, t)
 	t = t or {}
 
 	for tr in cleanHTML(html):gmatch('<tr class="results">.-</tr>') do
@@ -227,7 +228,7 @@ end
 
 parseSearchResults["wowace"] = parseSearchResults["curseforge"]
 
-parseSearchResults["wowinterface"] = function(html, t)
+parseSearchResults["wowinterface"] = function(html, site, t)
 	t = t or {}
 	for tr in cleanHTML(html):gmatch('<tr>(.-)</tr>') do
 		local id, name = tr:match('<a href="fileinfo.php%?[^"]*id=(%d+)[^"]*">(.-)</a>')
