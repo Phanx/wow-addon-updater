@@ -318,7 +318,7 @@ local function installAddonFile(addon, file)
 		print("\tInstalling folder: " .. dir)
 		table.insert(folders, dir)
 		if lfs.attributes(string.format("%s/%s", BASEDIR, dir)) then
-			os.execute(string.format("gvfs-trash '%s/%s'", BASEDIR, dir))
+			os.execute(string.format("gio trash '%s/%s'", BASEDIR, dir))
 		end
 		os.execute(string.format("mv '%s' '%s'", path, BASEDIR))
 		os.execute(string.format("chmod -R 777 '%s/%s'", BASEDIR, dir))
