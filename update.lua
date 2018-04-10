@@ -59,7 +59,7 @@ local function addSearchResults(site, html, t)
 	local parser = sites.parseSearchResults[site]
 	if parser and type(html) == "string" then
 		html = cleanHTML(html)
-		parser(html, t)
+		parser(html, site, t)
 	end
 
 	return t
