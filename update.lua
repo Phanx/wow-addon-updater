@@ -82,20 +82,20 @@ local function ignoreAddon(addon)
 end
 
 local function saveAddonMatch(addon, site, id)
-	print("Saving match: %s (%s @ %s)", addon.title, id, site)
+	print("Saving match: %s (%s @ %s)", tostring(addon.title), tostring(id), tostring(site))
 	addon.site = site
 	addon.id = id
 end
 
 local function matchAddon(addon)
 	local results = getSearchResults(addon.title)
-	print("Found %d matches for %s by %s", #results, addon.title, addon.author or "<unknown>")
+	print("Found %d matches for %s by %s", tostring(#results), tostring(addon.title), tostring(addon.author or "<unknown>"))
 
 	if #results > 0 then
 		for i = 1, #results do
 			local result = results[i]
 			local lastUpdated = result.date and os.date("%x", result.date) or "<unknown>"
-			print("%d. %s (%s) %s", i, result.name, result.author, lastUpdated)
+			print("%d. %s (%s) %s", i, tostring(result.name), tostring(result.author), lastUpdated)
 		end
 
 		local pick = tonumber(core.prompt("Pick a match (1" .. (#results > 1 and ("-" .. #results) or "") .. ") or enter 0 if none are right:")) or 0
