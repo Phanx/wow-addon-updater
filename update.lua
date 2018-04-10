@@ -119,7 +119,7 @@ local function matchAddon(addon)
 		reply = core.prompt("Addon site (" .. options ..") or URL:")
 
 		if reply:match("^https?://") then
-			local site, id = core.parseProjectURL(reply)
+			local site, id = sites.parseProjectURL(reply)
 			if site and id then
 				return saveAddonMatch(addon, site, id)
 			end
