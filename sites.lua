@@ -91,7 +91,7 @@ parseFilesList["wowinterface"] = function(url, html, t)
 
 	local host = url:match("https://[^/]+")
 
-	if url:find("/downloads/landing\.php") then
+	if url:find("/downloads/landing%.php") then
 		local file = t[1]
 		if file then
 			local link = html:match('<div class="manuallink">.- <a href="(.-)">Click here</a>')
@@ -230,8 +230,8 @@ parseSearchResults["wowace"] = parseSearchResults["curseforge"]
 parseSearchResults["wowinterface"] = function(html, t)
 	t = t or {}
 	for tr in cleanHTML(html):gmatch('<tr>(.-)</tr>') do
-		local id, name = tr:match('<a href="fileinfo.php\?[^"]*id=(%d+)[^"]*">(.-)</a>')
-		local author = tr:match('<a href="/forums/member.php[^"]+">(.-)</a>')
+		local id, name = tr:match('<a href="fileinfo.php%?[^"]*id=(%d+)[^"]*">(.-)</a>')
+		local author = tr:match('<a href="/forums/member%.php[^"]+">(.-)</a>')
 		local updated = tr:match('<td align="center" class="alt%d">(%d%d%-%d%d%-%d%d)</td>')
 		if updated then
 			local m, d, y = tr:match("(%d%d)%-(%d%d)%-(%d%d)")
