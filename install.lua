@@ -58,7 +58,8 @@ local function installAddon(site, id)
 			db[other] = {
 				dir = other,
 				parent = dir,
-				ignore = true
+				ignore = true,
+                site = site
 			}
 		end
 	end
