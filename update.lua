@@ -95,7 +95,7 @@ local function matchAddon(addon)
 		for i = 1, #results do
 			local result = results[i]
 			local lastUpdated = result.date and os.date("%x", result.date) or "<unknown>"
-			print("%d. %s (%s) %s", i, tostring(result.name), tostring(result.author), lastUpdated)
+			print("%d. %s (%s) %s - %s", i, tostring(result.name), tostring(result.author), lastUpdated, tostring(result.site))
 		end
 
 		local pick = tonumber(core.prompt("Pick a match (1" .. (#results > 1 and ("-" .. #results) or "") .. ") or enter 0 if none are right:")) or 0
