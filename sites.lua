@@ -213,7 +213,7 @@ parseSearchResults["curseforge"] = function(html, t)
 
 		if id and name and author then
 			table.insert(t, {
-				site = site,
+				site = "curseforge",
 				id = id,
 				name = name,
 				author = author,
@@ -225,7 +225,15 @@ parseSearchResults["curseforge"] = function(html, t)
 	return t
 end
 
-parseSearchResults["wowace"] = parseSearchResults["curseforge"]
+parseSearchResults["wowace"] = function(html, t)
+	t = parseSearchResults["curseforge"](html, t)
+
+	for _, result in pairs(t) do
+		result.site = "wowace"
+	end
+
+	return t
+end
 
 parseSearchResults["wowinterface"] = function(html, t)
 	t = t or {}
