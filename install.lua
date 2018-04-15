@@ -58,7 +58,7 @@ local function installAddon(site, id)
 				dir = other,
 				parent = dir,
 				ignore = true,
-                site = site
+				site = site
 			}
 		end
 	end
