@@ -23,16 +23,17 @@ end
 
 --[[
 	info
-	Maps CLI acesskey to site name
+	Maps CLI acesskey to site name, and name to human-facing title
 --]]
 local info = {
-	{ key = "c", id = "curseforge" },
-	{ key = "a", id = "wowace" },
-	{ key = "i", id = "wowinterface" },
+	{ key = "c", id = "curseforge", name = "CurseForge" },
+	{ key = "a", id = "wowace", name = "WowAce" },
+	{ key = "i", id = "wowinterface", name = "WoWInterface" },
 }
 for i = 1, #info do
 	local site = info[i]
-	info[site.key] = site.id
+	info[site.key] = site
+	info[site.id] = site
 end
 exports.info = info
 
