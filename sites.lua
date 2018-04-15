@@ -240,7 +240,7 @@ parseSearchResults["wowinterface"] = function(html, t)
 
 		if id and name and author then
 			table.insert(t, {
-				site = site,
+				site = "wowinterface",
 				id = id,
 				name = name,
 				author = author,
@@ -256,7 +256,7 @@ parseSearchResults["wowinterface"] = function(html, t)
 
 			if id and name and author then
 				table.insert(t, {
-					site = site,
+					site = "wowinterface",
 					id = id,
 					name = name,
 					author = author,
