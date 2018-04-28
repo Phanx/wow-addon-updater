@@ -35,8 +35,7 @@ local function installAddon(site, id)
 			print(string.format("%d. %s", i, folders[i]))
 		end
 
-		io.write("Select main folder for addon:")
-		main = tonumber(io.read())
+		main = tonumber(core.prompt("Select main folder for addon:"))
 	end
 
 	local dir = folders[main]
@@ -58,7 +57,8 @@ local function installAddon(site, id)
 			db[other] = {
 				dir = other,
 				parent = dir,
-				ignore = true
+				ignore = true,
+				site = site
 			}
 		end
 	end

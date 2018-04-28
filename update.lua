@@ -95,7 +95,8 @@ local function matchAddon(addon)
 		for i = 1, #results do
 			local result = results[i]
 			local lastUpdated = result.date and os.date("%x", result.date) or "<unknown>"
-			print("%d. %s (%s) %s", i, tostring(result.name), tostring(result.author), lastUpdated)
+			local siteName = result.site and sites.info[result.site] and sites.info[result.site].name or result.site or "<unknown>"
+			print("%d. %s (by %s, updated %s on %s)", i, tostring(result.name), tostring(result.author), lastUpdated, siteName)
 		end
 
 		local pick = tonumber(core.prompt("Pick a match (1" .. (#results > 1 and ("-" .. #results) or "") .. ") or enter 0 if none are right:")) or 0
@@ -119,7 +120,7 @@ local function matchAddon(addon)
 		reply = core.prompt("Addon site (" .. options ..") or URL:")
 
 		if reply:match("^https?://") then
-			local site, id = core.parseProjectURL(reply)
+			local site, id = sites.parseProjectURL(reply)
 			if site and id then
 				return saveAddonMatch(addon, site, id)
 			end
@@ -128,7 +129,7 @@ local function matchAddon(addon)
 		end
 
 		reply = reply:lower()
-		local site = sites.info[reply]
+		local site = sites.info[reply] and sites.info[reply].id
 		if not site then
 			print("Invalid site")
 			return ignoreAddon(addon)

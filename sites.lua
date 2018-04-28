@@ -23,16 +23,17 @@ end
 
 --[[
 	info
-	Maps CLI acesskey to site name
+	Maps CLI acesskey to site name, and name to human-facing title
 --]]
 local info = {
-	{ key = "c", id = "curseforge" },
-	{ key = "a", id = "wowace" },
-	{ key = "i", id = "wowinterface" },
+	{ key = "c", id = "curseforge", name = "CurseForge" },
+	{ key = "a", id = "wowace", name = "WowAce" },
+	{ key = "i", id = "wowinterface", name = "WoWInterface" },
 }
 for i = 1, #info do
 	local site = info[i]
-	info[site.key] = site.id
+	info[site.key] = site
+	info[site.id] = site
 end
 exports.info = info
 
@@ -213,7 +214,7 @@ parseSearchResults["curseforge"] = function(html, t)
 
 		if id and name and author then
 			table.insert(t, {
-				site = site,
+				site = "curseforge",
 				id = id,
 				name = name,
 				author = author,
@@ -225,21 +226,55 @@ parseSearchResults["curseforge"] = function(html, t)
 	return t
 end
 
-parseSearchResults["wowace"] = parseSearchResults["curseforge"]
+parseSearchResults["wowace"] = function(html, t)
+	t = parseSearchResults["curseforge"](html, t)
+
+	for _, result in pairs(t) do
+		result.site = "wowace"
+	end
+
+	return t
+end
 
 parseSearchResults["wowinterface"] = function(html, t)
 	t = t or {}
-	for tr in cleanHTML(html):gmatch('<tr>(.-)</tr>') do
-		local id, name = tr:match('<a href="fileinfo.php%?[^"]*id=(%d+)[^"]*">(.-)</a>')
-		local author = tr:match('<a href="/forums/member%.php[^"]+">(.-)</a>')
-		local updated = tr:match('<td align="center" class="alt%d">(%d%d%-%d%d%-%d%d)</td>')
-		if updated then
-			local m, d, y = tr:match("(%d%d)%-(%d%d)%-(%d%d)")
-			if m and d and y then
-				updated = getTimestamp("20"..y, m, d)
+	local cleanedHtml = cleanHTML(html)
+	if cleanedHtml:match('>Addon Info.<') then
+		local id = cleanedHtml:match('/downloads/download(%d+)%-')
+		local name = cleanedHtml:match('<h1>(.-)</h1>')
+		local author = cleanedHtml:match('/forums/member%.php[^"]+"><b>(.-)</b>')
+		local d, m, y, hh, mm, am = cleanedHtml:match('<div id="safe">Updated: (%d+)%-(%d+)%-(%d+) (%d+):(%d+) ([AP]M)</div>')
+		if hh and am == "PM" then hh = tonumber(hh) + 12 end
+		local date = getTimestamp(y, m, d, hh, mm)
+
+		if id and name and author then
+			table.insert(t, {
+				site = "wowinterface",
+				id = id,
+				name = name,
+				author = author,
+				date = date,
+			})
+		end
+	else
+		for tr in cleanedHtml:gmatch('<tr>(.-)</tr>') do
+			local id, name = tr:match('<a href="fileinfo.php%?[^"]*id=(%d+)[^"]*">(.-)</a>')
+			local author = tr:match('<a href="/forums/member%.php[^"]+">(.-)</a>')
+			local m, d, y = cleanedHtml:match('<td align="center" class="alt1">(%d+)%-(%d+)%-(%d+)</td>')
+			local date = getTimestamp(y, m, d)
+
+			if id and name and author then
+				table.insert(t, {
+					site = "wowinterface",
+					id = id,
+					name = name,
+					author = author,
+					date = date,
+				})
 			end
 		end
 	end
+
 	return t
 end
 
