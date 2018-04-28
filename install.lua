@@ -74,10 +74,17 @@ if args[1] and args[1]:match("^http") then
 	site, id = sites.parseProjectURL(args[1])
 elseif #args == 2 then
 	site, id = args[1]:lower(), args[2]:lower()
+else
+	print("Usage: `lua install.lua <url>` or `lua install.lua <site> <id>`")
+	os.exit()
 end
 
 if site and id then
 	installAddon(site, id)
+elseif not site then
+	print("Error: invalid site name")
+	os.exit()
 else
-	print("Usage: `lua install.lua <url>` or `lua install.lua <site> <id>`")
+	print("Error: invalid addon id")
+	os.exit()
 end
