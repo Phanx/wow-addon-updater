@@ -1,4 +1,4 @@
-﻿
+
 **Install and update World of Warcraft addons from the command line on Linux.**
 
 
